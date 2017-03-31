@@ -1,0 +1,80 @@
+package analysis;
+
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Deque;
+
+action code {:
+	Map<String,Integer> ts = new HashMap<String,Integer>();
+	Deque<Integer> pTipos = new LinkedList<Integer>();
+	
+	public void asVarCheck(String ident) throws Exception {
+		if(ts.containsKey(ident)) {
+			throw new Exception("Variável \"" + ident + "\" já declarada");
+		} else {
+			Integer t = asUnstackType();
+			ts.put(ident, t);
+			System.out.println("ID <" + ident + "," + Sym.terminalNames[t] + "> adicionado à tabela de símbolos");
+		}
+	}
+	
+	public void asStackUpType(Integer varType) {
+		pTipos.addFirst(varType);
+		System.out.println("Tipo empilhado: " + Sym.terminalNames[varType]);
+	}
+	
+	public Integer asUnstackType() throws Exception {
+		if (pTipos.isEmpty()) {
+			throw new Exception("Tipo não encontrado");
+		}
+		return pTipos.removeFirst();
+	}
+:};
+
+terminal IntType, FloatType, EndCmd, Att;
+terminal SumOp, SubOp, OpenPar, ClosePar;
+terminal Integer, Float, Id;
+
+non terminal INIT, COMMANDS, CMD, ATT_CMD, DEC_ATT_CMD, TYPE;
+non terminal DEC_CMD, EXPRESSION, ARITHMETIC_EXP, ARITHM_EXP;
+non terminal FACTOR, NUMBER, SUM_SUB_OP;
+
+start with INIT;
+
+INIT ::= COMMANDS;
+COMMANDS ::= CMD EndCmd COMMANDS | ;
+CMD ::= DEC_CMD | ATT_CMD | DEC_ATT_CMD;
+
+DEC_CMD ::= TYPE Id:ident
+			{:
+				asVarCheck((String)ident);
+			:}
+			;
+ATT_CMD ::= Id Att EXPRESSION;
+DEC_ATT_CMD ::= DEC_CMD Att EXPRESSION ;
+
+TYPE ::= IntType
+		 {:
+		 	asStackUpType(Sym.IntType);
+		 :} 
+		 | FloatType:floatType
+		 {:
+		 	asStackUpType(Sym.FloatType);
+		 :} 
+		 ;
+
+EXPRESSION ::= ARITHMETIC_EXP;
+ARITHMETIC_EXP ::= FACTOR ARITHM_EXP;
+ARITHM_EXP ::= SUM_SUB_OP FACTOR 
+			{:
+
+			:}
+			ARITHM_EXP	| ;
+FACTOR ::= NUMBER | Id	| OpenPar ARITHMETIC_EXP ClosePar ;
+NUMBER ::= Integer | Float ;
+
+SUM_SUB_OP ::= SumOp | SubOp ;
+
