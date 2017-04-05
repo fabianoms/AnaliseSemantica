@@ -12,10 +12,10 @@ action code {:
 	Deque<Integer> pTipos = new LinkedList<Integer>();
 	
 	public void asVarCheck(String ident) throws Exception {
+		Integer t = asUnstackType();
 		if(ts.containsKey(ident)) {
 			throw new Exception("Variável \"" + ident + "\" já declarada");
 		} else {
-			Integer t = asUnstackType();
 			ts.put(ident, t);
 			System.out.println("ID <" + ident + "," + Sym.terminalNames[t] + "> adicionado à tabela de símbolos");
 		}
@@ -28,9 +28,35 @@ action code {:
 	
 	public Integer asUnstackType() throws Exception {
 		if (pTipos.isEmpty()) {
-			throw new Exception("Tipo não encontrado");
+			throw new Exception("Pilha vazia");
 		}
-		return pTipos.removeFirst();
+		Integer t = pTipos.removeFirst(); 
+		System.out.println("Tipo desempilhado: " + Sym.terminalNames[t]);
+		return t;
+	}
+	
+	public void asStackUpResultingType_SUM_SUB() throws Exception {
+		Integer aType = asUnstackType();
+		Integer bType = asUnstackType();
+		Integer resultingType;
+		if (aType == Sym.IntType && bType == Sym.IntType) {
+			resultingType = Sym.IntType;
+		} else {
+			resultingType = Sym.FloatType;
+		}
+		asStackUpType(resultingType);
+	}
+	
+	public void asCheckCompatibilityATT_CMD(String id) throws Exception {
+		Integer expType = asUnstackType();
+		Integer idType = asUnstackType();
+		if (idType == Sym.IntType && expType == Sym.FloatType) {
+			String idTypename = Sym.terminalNames[idType];
+			String expTypename = Sym.terminalNames[expType]; 
+			throw new Exception("A variável '" + id + "' do tipo " +
+				 idTypename + " não pode armazenar valores do tipo "
+				 + expTypename);
+		}
 	}
 :};
 
@@ -53,14 +79,23 @@ DEC_CMD ::= TYPE Id:ident
 				asVarCheck((String)ident);
 			:}
 			;
-ATT_CMD ::= Id Att EXPRESSION;
+ATT_CMD ::= Id:ident
+			{:
+				asStackUpType(ts.get(ident));
+			:}
+			Att EXPRESSION
+			{:
+				asCheckCompatibilityATT_CMD((String)ident);
+			:}
+			;
+
 DEC_ATT_CMD ::= DEC_CMD Att EXPRESSION ;
 
 TYPE ::= IntType
 		 {:
 		 	asStackUpType(Sym.IntType);
 		 :} 
-		 | FloatType:floatType
+		 | FloatType
 		 {:
 		 	asStackUpType(Sym.FloatType);
 		 :} 
@@ -70,11 +105,24 @@ EXPRESSION ::= ARITHMETIC_EXP;
 ARITHMETIC_EXP ::= FACTOR ARITHM_EXP;
 ARITHM_EXP ::= SUM_SUB_OP FACTOR 
 			{:
-
+				asStackUpResultingType_SUM_SUB();
 			:}
 			ARITHM_EXP	| ;
-FACTOR ::= NUMBER | Id	| OpenPar ARITHMETIC_EXP ClosePar ;
-NUMBER ::= Integer | Float ;
+FACTOR ::= NUMBER 
+		   | Id:ident
+		   {:
+	   	   		asStackUpType(ts.get(ident));
+		   :}	
+		   | OpenPar ARITHMETIC_EXP ClosePar ;
+NUMBER ::= Integer
+		   {:
+		   		asStackUpType(Sym.IntType);
+		   :} 
+	       | Float 
+	       {:
+	       		asStackUpType(Sym.FloatType);
+	       :}
+	       ;
 
 SUM_SUB_OP ::= SumOp | SubOp ;
 
